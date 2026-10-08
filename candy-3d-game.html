@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>حلوى 3D — لعبة المطابقة</title>
+<style>
+  :root{
+    --c1:#4f8ef7; --c2:#f0564f; --c3:#4fbf67; --c4:#9a63f0; --c5:#8b94a3;
+    --bg:#f6f4f0; --panel:#ffffff; --ink:#22242a; --sub:#7a7f8a; --line:#e4e0d8;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+  body{font-family:"Segoe UI",Tahoma,Arial,sans-serif; background:var(--bg); color:var(--ink);
+       min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:24px 12px;}
+  button{font:inherit; cursor:pointer; border:none;}
+
+  .screen{width:100%; max-width:420px; display:flex; flex-direction:column; align-items:center; gap:16px;}
+  .hidden{display:none !important;}
+
+  h1{font-size:26px; font-weight:800; letter-spacing:0;}
+  h1 .pop{color:var(--c2);}
+  .sub{color:var(--sub); font-size:14px;}
+
+  /* شاشة المراحل */
+  .levels{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; width:100%;}
+  .level-btn{position:relative; aspect-ratio:1; border-radius:16px; background:var(--panel);
+    border:1px solid var(--line); box-shadow:0 4px 0 var(--line); display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:4px; transition:transform .12s;}
+  .level-btn:active{transform:translateY(3px); box-shadow:0 1px 0 var(--line);}
+  .level-btn .num{font-size:24px; font-weight:800;}
+  .level-btn .stars{font-size:13px; letter-spacing:2px; color:#f5b301;}
+  .level-btn .stars .off{color:#d8d3c8;}
+  .level-btn.locked{opacity:.45;}
+  .level-btn.locked .num{color:var(--sub);}
+  .level-btn.current{outline:3px solid var(--c1);}
+
+  /* شاشة اللعب */
+  .hud{display:flex; gap:8px; width:100%;}
+  .stat{flex:1; display:flex; flex-direction:column; align-items:center; gap:2px;
+    background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:8px 4px;
+    box-shadow:0 3px 0 var(--line);}
+  .stat .lbl{font-size:12px; color:var(--sub);}
+  .stat .val{font-size:20px; font-weight:800; font-variant-numeric:tabular-nums;}
+  .icon-btn{background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:0 14px; font-size:18px; box-shadow:0 3px 0 var(--line);}
+
+  .scene{perspective:900px;}
+  #board{position:relative; width:352px; height:352px; max-width:92vw; max-height:92vw;
+    background:#efece5; border:1px solid var(--line); border-radius:16px;
+    transform:rotateX(8deg); transform-style:preserve-3d; touch-action:none;
+    box-shadow:0 12px 24px rgba(0,0,0,.08);}
+  @media (max-width:400px){ #board{width:92vw; height:92vw;} }
+
+  .candy{position:absolute; width:32px; height:32px; margin:4px;
+    transition:left .22s ease, top .22s ease, transform .18s ease-out, opacity .18s ease-out;
+    transform:translateZ(6px);}
+  @media (max-width:400px){ .candy{width:calc(11.5vw - 10px); height:calc(11.5vw - 10px);} }
+  .candy i{display:block; width:100%; height:100%; pointer-events:none;}
+  .candy::after{content:""; position:absolute; left:18%; top:12%; width:32%; height:18%;
+    border-radius:50%; background:rgba(255,255,255,.5); pointer-events:none;}
+  .t0{--c:var(--c1);} .t1{--c:var(--c2);} .t2{--c:var(--c3);} .t3{--c:var(--c4);} .t4{--c:var(--c5);}
+  .t5{--c:#f0a24f;}
+  .candy{background:var(--c);
+    box-shadow:0 5px 0 color-mix(in srgb,var(--c) 55%, #000),
+               0 9px 10px rgba(0,0,0,.25),
+               inset -3px -3px 6px rgba(0,0,0,.2),
+               inset 3px 3px 6px rgba(255,255,255,.3);}
+  .s0{border-radius:50%;}
+  .s1{border-radius:8px;}
+  .s2 i{border-radius:6px; transform:rotate(45deg) scale(.72); background:rgba(255,255,255,.28);}
+  .s3{clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%);
+      filter:drop-shadow(0 5px 0 color-mix(in srgb,var(--c) 55%,#000)) drop-shadow(0 4px 6px rgba(0,0,0,.3));}
+  .s4{clip-path:polygon(50% 2%,98% 96%,2% 96%);
+      filter:drop-shadow(0 5px 0 color-mix(in srgb,var(--c) 55%,#000)) drop-shadow(0 4px 6px rgba(0,0,0,.3));}
+  .s5{border-radius:50% 50% 8px 8px;}
+  .candy:hover{transform:translateZ(12px);}
+  .candy.sel{transform:translateZ(18px) scale(1.15); outline:2px solid #222; outline-offset:2px;}
+  .candy.pop{transform:translateZ(6px) scale(0) rotate(50deg); opacity:0;}
+
+  .bar{height:10px; width:100%; background:#e9e5dc; border-radius:99px; overflow:hidden;}
+  .bar > div{height:100%; width:0%; background:linear-gradient(90deg,var(--c1),var(--c4));
+    border-radius:99px; transition:width .3s ease;}
+
+  .overlay{position:absolute; inset:0; z-index:5; border-radius:16px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px;
+    background:rgba(255,255,255,.9); font-size:20px; font-weight:800; text-align:center; padding:16px;}
+  .overlay .stars-big{font-size:34px; color:#f5b301; letter-spacing:6px;}
+  .overlay .stars-big .off{color:#d8d3c8;}
+  .overlay p{font-size:14px; font-weight:400; color:var(--sub);}
+  .overlay .row{display:flex; gap:8px;}
+  .overlay button{border-radius:12px; padding:10px 22px; font-size:15px; font-weight:700;}
+  .btn-primary{background:#22242a; color:#fff;}
+  .btn-ghost{background:transparent; border:1px solid var(--line); color:var(--ink);}
+</style>
+</head>
+<body>
+
+<!-- شاشة المراحل -->
+<div class="screen" id="screen-levels">
+  <h1>حلوى <span class="pop">3D</span></h1>
+  <p class="sub">اختر مرحلة وابدأ المطابقة</p>
+  <div class="levels" id="levels"></div>
+</div>
+
+<!-- شاشة اللعب -->
+<div class="screen hidden" id="screen-game">
+  <div class="hud">
+    <button class="icon-btn" id="back" title="المراحل">☰</button>
+    <div class="stat"><span class="lbl">المرحلة</span><span class="val" id="lv">1</span></div>
+    <div class="stat"><span class="lbl">النقاط</span><span class="val" id="score">0</span></div>
+    <div class="stat"><span class="lbl">الحركات</span><span class="val" id="moves">0</span></div>
+  </div>
+  <div class="bar"><div id="progress"></div></div>
+  <div class="scene"><div id="board"></div></div>
+  <p class="sub">بدّل حلوى مجاورة لكوّن 3 متشابهة — املأ الشريط للوصول للهدف</p>
+</div>
+
+<script>
+(function(){
+  const ROWS=8, COLS=8, CELL=40, STORE='candy3d_progress_v1';
+
+  // تعريف المراحل: [عدد الأنواع, الحركات, الهدف]
+  const LEVELS=[
+    [4,22,400],[4,20,600],[5,20,800],[5,18,1000],[5,16,1200],
+    [6,18,1400],[6,16,1600],[6,15,2000],[6,14,2400],[6,12,3000]
+  ];
+
+  let progress=load();
+  let cur=0, TYPES=4, MAX_MOVES=22, TARGET=400;
+  let grid, candies, score, movesLeft, selected, busy, nextId=1;
+
+  const $=id=>document.getElementById(id);
+  const board=$('board'), scoreEl=$('score'), movesEl=$('moves'), lvEl=$('lv'), progEl=$('progress');
+
+  function load(){
+    try{ const p=JSON.parse(localStorage.getItem(STORE)); if(p&&p.stars) return p; }catch(e){}
+    return {stars:{}};
+  }
+  function save(){ try{ localStorage.setItem(STORE, JSON.stringify(progress)); }catch(e){} }
+
+  /* ---------- شاشة المراحل ---------- */
+  function renderLevels(){
+    const wrap=$('levels'); wrap.innerHTML='';
+    let firstUnlocked=0;
+    for(let i=0;i<LEVELS.length;i++){ if(!(progress.stars[i]>0)){ firstUnlocked=i; break; } firstUnlocked=i+1; }
+    firstUnlocked=Math.min(firstUnlocked, LEVELS.length-1);
+
+    LEVELS.forEach((cfg,i)=>{
+      const unlocked = i===0 || (progress.stars[i-1]>0);
+      const st=progress.stars[i]||0;
+      const b=document.createElement('button');
+      b.className='level-btn'+(unlocked?'':' locked')+(i===firstUnlocked&&unlocked?' current':'');
+      b.innerHTML= unlocked
+        ? '<span class="num">'+(i+1)+'</span><span class="stars">'+starStr(st)+'</span>'
+        : '<span class="num">🔒</span>';
+      if(unlocked) b.onclick=()=>startLevel(i);
+      wrap.appendChild(b);
+    });
+  }
+  function starStr(n){
+    let s=''; for(let k=0;k<3;k++) s+= k<n?'★':'<span class="off">★</span>'; return s;
+  }
+
+  /* ---------- منطق اللعبة ---------- */
+  function makeCandy(type,r,c){
+    const el=document.createElement('div');
+    el.className='candy t'+type+' s'+type;
+    el.appendChild(document.createElement('i'));
+    const candy={id:nextId++, type, r, c, el};
+    el.dataset.id=candy.id;
+    el.style.left=c*CELL+'px'; el.style.top=r*CELL+'px';
+    board.appendChild(el); candies.set(candy.id,candy);
+    return candy;
+  }
+  function setPos(c){ c.el.style.left=c.c*CELL+'px'; c.el.style.top=c.r*CELL+'px'; }
+
+  function randTypeAvoiding(r,c){
+    let t;
+    do{ t=Math.floor(Math.random()*TYPES); }
+    while((c>=2&&grid[r][c-1].type===t&&grid[r][c-2].type===t)||
+          (r>=2&&grid[r-1][c].type===t&&grid[r-2][c].type===t));
+    return t;
+  }
+
+  function startLevel(i){
+    cur=i; [TYPES,MAX_MOVES,TARGET]=LEVELS[i];
+    $('screen-levels').classList.add('hidden');
+    $('screen-game').classList.remove('hidden');
+    init();
+  }
+
+  function init(){
+    board.innerHTML=''; board.style.transform='rotateX(8deg)';
+    candies=new Map(); grid=[]; score=0; movesLeft=MAX_MOVES; selected=null; busy=false;
+    lvEl.textContent=cur+1;
+    for(let r=0;r<ROWS;r++) grid.push(new Array(COLS).fill(null));
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++)
+      grid[r][c]=makeCandy(randTypeAvoiding(r,c),r,c);
+    while(!hasPossibleMoves()) shuffleTypes();
+    updateHUD();
+  }
+
+  function updateHUD(){
+    scoreEl.textContent=score; movesEl.textContent=movesLeft;
+    progEl.style.width=Math.min(100, score/TARGET*100)+'%';
+  }
+
+  function hasMatch(){
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+      const t=grid[r][c].type;
+      if(c+2<COLS&&grid[r][c+1].type===t&&grid[r][c+2].type===t) return true;
+      if(r+2<ROWS&&grid[r+1][c].type===t&&grid[r+2][c].type===t) return true;
+    }
+    return false;
+  }
+  function hasPossibleMoves(){
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++)
+      for(const d of [[0,1],[1,0]]){
+        const r2=r+d[0], c2=c+d[1];
+        if(r2>=ROWS||c2>=COLS) continue;
+        const a=grid[r][c], b=grid[r2][c2];
+        grid[r][c]=b; grid[r2][c2]=a;
+        const ok=hasMatch();
+        grid[r][c]=a; grid[r2][c2]=b;
+        if(ok) return true;
+      }
+    return false;
+  }
+  function shuffleTypes(){
+    const types=[];
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) types.push(grid[r][c].type);
+    let tries=0;
+    do{
+      for(let i=types.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [types[i],types[j]]=[types[j],types[i]]; }
+      let k=0;
+      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+        grid[r][c].type=types[k];
+        grid[r][c].el.className='candy t'+types[k]+' s'+Math.min(types[k],5);
+        k++;
+      }
+      tries++;
+    } while((hasMatch()||!hasPossibleMoves()) && tries<80);
+  }
+
+  function findMatches(){
+    const out=new Set();
+    for(let r=0;r<ROWS;r++){ let run=1;
+      for(let c=1;c<=COLS;c++){
+        if(c<COLS&&grid[r][c]&&grid[r][c-1]&&grid[r][c].type===grid[r][c-1].type) run++;
+        else{ if(run>=3) for(let k=c-run;k<c;k++) out.add(grid[r][k]); run=1; }
+      }}
+    for(let c=0;c<COLS;c++){ let run=1;
+      for(let r=1;r<=ROWS;r++){
+        if(r<ROWS&&grid[r][c]&&grid[r-1][c]&&grid[r][c].type===grid[r-1][c].type) run++;
+        else{ if(run>=3) for(let k=r-run;k<r;k++) out.add(grid[k][c]); run=1; }
+      }}
+    return [...out];
+  }
+
+  function swapGrid(a,b){
+    grid[a.r][a.c]=b; grid[b.r][b.c]=a;
+    const r=a.r,c=a.c; a.r=b.r; a.c=b.c; b.r=r; b.c=c;
+    setPos(a); setPos(b);
+  }
+
+  function trySwap(a,b){
+    busy=true; deselect();
+    swapGrid(a,b);
+    setTimeout(()=>{
+      if(findMatches().length){ movesLeft--; updateHUD(); resolveBoard(); }
+      else{ swapGrid(a,b); setTimeout(()=>{busy=false;},230); }
+    },240);
+  }
+
+  function resolveBoard(){
+    const matches=findMatches();
+    if(!matches.length){
+      busy=false;
+      if(!hasPossibleMoves()) shuffleTypes();
+      checkEnd();
+      return;
+    }
+    score+=matches.length*10; updateHUD();
+    matches.forEach(cd=>{ grid[cd.r][cd.c]=null; cd.el.classList.add('pop'); });
+    setTimeout(()=>{
+      matches.forEach(cd=>{ cd.el.remove(); candies.delete(cd.id); });
+      dropAndFill();
+      setTimeout(resolveBoard,260);
+    },190);
+  }
+
+  function dropAndFill(){
+    for(let c=0;c<COLS;c++){
+      let write=ROWS-1;
+      for(let r=ROWS-1;r>=0;r--){
+        const cd=grid[r][c];
+        if(cd){ grid[write][c]=cd; if(write!==r){ cd.r=write; setPos(cd); } write--; }
+      }
+      const missing=write+1;
+      for(let r=write;r>=0;r--){
+        const candy=makeCandy(Math.floor(Math.random()*TYPES),r,c);
+        candy.el.style.top=((r-missing)*CELL)+'px';
+        grid[r][c]=candy;
+      }
+      const wr=write;
+      requestAnimationFrame(()=>{ for(let r=wr;r>=0;r--) setPos(grid[r][c]); });
+    }
+  }
+
+  function calcStars(){
+    if(score<TARGET) return 0;
+    if(score>=TARGET*2) return 3;
+    if(score>=TARGET*1.5) return 2;
+    return 1;
+  }
+
+  function checkEnd(){
+    if(movesLeft>0 && score<TARGET) return;
+    const st=calcStars();
+    if(st>0 && (progress.stars[cur]||0)<st){ progress.stars[cur]=st; save(); }
+    const last = cur===LEVELS.length-1;
+    let html;
+    if(st>0){
+      html='<div class="stars-big">'+starStr(st)+'</div><div>أحسنت! مرحلة '+(cur+1)+' مكتملة</div><p>نقاطك '+score+'</p>';
+    } else {
+      html='<div>نفدت الحركات!</div><p>وصلت إلى '+score+' من '+TARGET+' — حاول مجدداً</p>';
+    }
+    const o=document.createElement('div');
+    o.className='overlay'; o.innerHTML=html;
+    const row=document.createElement('div'); row.className='row';
+    const again=document.createElement('button'); again.className='btn-ghost'; again.textContent='إعادة';
+    again.onclick=()=>{ o.remove(); init(); };
+    const menu=document.createElement('button'); menu.className='btn-ghost'; menu.textContent='المراحل';
+    menu.onclick=()=>{ o.remove(); goMenu(); };
+    row.appendChild(again); row.appendChild(menu);
+    if(st>0 && !last){
+      const next=document.createElement('button'); next.className='btn-primary'; next.textContent='التالية ←';
+      next.onclick=()=>{ o.remove(); startLevel(cur+1); };
+      row.appendChild(next);
+    }
+    if(st>0 && last){
+      o.innerHTML+='<p>🎉 أنهيت جميع المراحل!</p>';
+    }
+    o.appendChild(row);
+    board.appendChild(o);
+    board.style.transform='rotateX(0deg)';
+  }
+
+  function goMenu(){
+    $('screen-game').classList.add('hidden');
+    $('screen-levels').classList.remove('hidden');
+    renderLevels();
+  }
+
+  function deselect(){ if(selected){ selected.el.classList.remove('sel'); selected=null; } }
+
+  board.addEventListener('pointerdown',e=>{
+    const el=e.target.closest('.candy');
+    if(!el||busy) return;
+    const cd=candies.get(+el.dataset.id);
+    if(!selected){ selected=cd; cd.el.classList.add('sel'); return; }
+    if(selected===cd){ deselect(); return; }
+    const adj=Math.abs(selected.r-cd.r)+Math.abs(selected.c-cd.c)===1;
+    if(adj) trySwap(selected,cd);
+    else{ deselect(); selected=cd; cd.el.classList.add('sel'); }
+  });
+
+  $('back').onclick=goMenu;
+  $('restart') && ($('restart').onclick=init);
+
+  renderLevels();
+})();
+</script>
+</body>
+</html>
